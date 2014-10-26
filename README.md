@@ -37,3 +37,9 @@ In order to install good you'll need to do the following:
 If you already have git2go installed you'll only need the last line.
 
 Then just go to directory of your choice and run good.
+
+You can also bound the search with the --days argument:
+
+    good --email=graham.abbott@gmail.com --days=10
+           +go | 285
+           +md | 42
