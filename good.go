@@ -12,21 +12,31 @@ const (
 	PATH_DATA = "~/Dropbox/gistory/"
 )
 
+func walk_branch(repo *git.Repository, branch *git.Branch) {
+	walk, _ := repo.Walk()
+
+	walk.Sorting(git.SortTopological)
+	walk.Reset()
+	walk.PushHead()
+	walk.Iterate(func(commit *git.Commit) bool {
+		fmt.Println(commit.Message())
+		return true
+	})
+}
+
 func process_repo(finalize chan int, repo_chan chan string) {
 	for path := range repo_chan {
 		repo, err := git.OpenRepository(path)
 		if err != nil {
 			fmt.Println("Counldn't find repo at ", path)
 		} else {
-			walk, _ := repo.Walk()
+			iter, _ := repo.NewBranchIterator(git.BranchLocal)
+			b, _, berr := iter.Next()
 
-			walk.Sorting(git.SortTopological)
-			walk.Reset()
-			walk.PushRef("testing")
-			walk.Iterate(func(commit *git.Commit) bool {
-				fmt.Println(commit.Message())
-				return true
-			})
+			for berr == nil {
+				walk_branch(repo, b)
+				b, _, berr = iter.Next()
+			}
 		}
 	}
 
