@@ -18,12 +18,16 @@ func process_repo(finalize chan int, repo_chan chan string) {
 		if err != nil {
 			fmt.Println("Counldn't find repo at ", path)
 		} else {
-			fmt.Println("Found git repo at: ", repo.Path())
-			rw, _ := repo.Walk()
-			rw.Iterate(func(commit *git.Commit) bool {
-				fmt.Println(commit)
-				return false
-			})
+			iter, err := repo.NewBranchIterator(git.BranchLocal)
+
+			b, _, err := iter.Next()
+
+			for err == nil {
+				name, _ := b.Name()
+				fmt.Println(name)
+				b, _, err = iter.Next()
+			}
+			fmt.Println("Ref over")
 		}
 	}
 
@@ -46,7 +50,7 @@ func find_repos(repo_chan chan string, path string) {
 }
 
 func main() {
-	PATH_SEARCH := []string{"Dropbox/golang/src/github.com/graham/"}
+	PATH_SEARCH := []string{"Dropbox/golang/src/github.com/graham/good/"}
 	finalize := make(chan int)
 	repo_chan := make(chan string)
 
