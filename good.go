@@ -155,7 +155,7 @@ func analyize(filename string) {
 
 	for key, value := range changeTypes {
 		if key[0] == '+' {
-			fmt.Printf("%14s - %d\n", key, value)
+			fmt.Printf("%14s | %d\n", key, value)
 		}
 	}
 }
