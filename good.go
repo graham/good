@@ -8,7 +8,9 @@ import (
 	"github.com/libgit2/git2go"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
 func walk_tree(repo *git.Repository, tree *git.Tree, prefix string) string {
@@ -137,7 +139,15 @@ func find_repos(repo_chan chan string, path string) {
 	filepath.Walk(abspath, visit)
 }
 
-func analyize(filename string) {
+func analyize(filename string, in_last int64) {
+	var lower_bound int64 = 0
+
+	if in_last == -1 {
+		// pass
+	} else {
+		lower_bound = time.Now().Unix() - int64(in_last*60*60*24)
+	}
+
 	file, _ := os.Open(filename)
 	scanner := bufio.NewReader(file)
 
@@ -146,11 +156,16 @@ func analyize(filename string) {
 	for line, _, err := scanner.ReadLine(); err == nil; line, _, err = scanner.ReadLine() {
 		sp := strings.SplitN(string(line), ",", 7)
 		localChange := make(map[string]int)
-		json.Unmarshal([]byte(sp[6]), &localChange)
 
-		for key, value := range localChange {
-			changeTypes[key] += value
+		commit_time, _ := strconv.ParseInt(sp[3], 10, 64)
+		if commit_time >= lower_bound {
+			json.Unmarshal([]byte(sp[6]), &localChange)
+
+			for key, value := range localChange {
+				changeTypes[key] += value
+			}
 		}
+
 	}
 
 	for key, value := range changeTypes {
@@ -163,6 +178,9 @@ func analyize(filename string) {
 func main() {
 	var fpath *string = flag.String("path", "./", "Path to search (default ./)")
 	var femail *string = flag.String("email", "", "The author (by email) to search for.")
+	var skip_search *int = flag.Int("skip", 0, "If 1 skip the search phase.")
+	var lower_bound *int64 = flag.Int64("days", -1, "History in days to search.")
+
 	flag.Parse()
 
 	if len(*femail) == 0 {
@@ -174,17 +192,18 @@ func main() {
 	path, _ := filepath.Abs(string(*fpath))
 	email := strings.Replace(string(*femail), "\\@", "@", -1)
 
-	finalize := make(chan int)
-	repo_chan := make(chan string)
-
 	save_file_path := os.Getenv("HOME") + "/commit_history_" + email + ".csv"
 
-	go process_repo(finalize, repo_chan, email, save_file_path)
+	if *skip_search != 1 {
+		finalize := make(chan int)
+		repo_chan := make(chan string)
 
-	find_repos(repo_chan, path)
-	close(repo_chan)
+		go process_repo(finalize, repo_chan, email, save_file_path)
 
-	<-finalize
+		find_repos(repo_chan, path)
+		close(repo_chan)
+		<-finalize
+	}
 
-	analyize(save_file_path)
+	analyize(save_file_path, *lower_bound)
 }
