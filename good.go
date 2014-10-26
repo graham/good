@@ -26,7 +26,7 @@ func process_repo(finalize chan int, repo_chan chan string) {
 				name, _ := b.Name()
 				fmt.Println(name)
 
-				obj, err := repo.Revparse(name)
+				obj, _ := repo.Revparse(name)
 				fmt.Println(obj)
 
 				b, _, err = iter.Next()
