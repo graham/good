@@ -25,3 +25,15 @@ Good takes an email and path as arguments and tries to find all of the commits i
               ...
               
 A commit history file is stored in your HOME directory so you can do some analysis of your own as well.
+
+In order to install good you'll need to do the following:
+
+    go get github.com/libgit2/git2go
+    cd $GOPATH/src/github.com/libgit2/git2go/
+    git submodule update --init # get libgit2
+    make install
+    go get github.com/graham/good
+    
+If you already have git2go installed you'll only need the last line.
+
+Then just go to directory of your choice and run good.
