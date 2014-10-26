@@ -139,7 +139,7 @@ func find_repos(repo_chan chan string, path string) {
 	filepath.Walk(abspath, visit)
 }
 
-func analyize(filename string, in_last int64) {
+func analyize(filename string, in_last int64, with_del bool) {
 	var lower_bound int64 = 0
 
 	if in_last == -1 {
@@ -162,16 +162,24 @@ func analyize(filename string, in_last int64) {
 			json.Unmarshal([]byte(sp[6]), &localChange)
 
 			for key, value := range localChange {
-				changeTypes[key] += value
+				if with_del {
+					if key[0] == '-' {
+						changeTypes[key] -= value
+					} else {
+						changeTypes[key] += value
+					}
+				} else {
+					if key[0] == '+' {
+						changeTypes[key[1:len(key)]] += value
+					}
+				}
 			}
 		}
 
 	}
 
 	for key, value := range changeTypes {
-		if key[0] == '+' {
-			fmt.Printf("%14s | %d\n", key, value)
-		}
+		fmt.Printf("%14s | %d\n", key, value)
 	}
 }
 
@@ -180,6 +188,7 @@ func main() {
 	var femail *string = flag.String("email", "", "The author (by email) to search for.")
 	var skip_search *int = flag.Int("skip", 0, "If 1 skip the scan step.")
 	var lower_bound *int64 = flag.Int64("days", -1, "History in days to search.")
+	var with_del *bool = flag.Bool("all", false, "Show deletes as well.")
 
 	flag.Parse()
 
@@ -208,5 +217,5 @@ func main() {
 		<-finalize
 	}
 
-	analyize(save_file_path, *lower_bound)
+	analyize(save_file_path, *lower_bound, *with_del)
 }
