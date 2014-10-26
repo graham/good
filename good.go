@@ -2,9 +2,60 @@ package main
 
 import (
 	"fmt"
-	"github.com/graham/testlib"
+	"github.com/libgit2/git2go"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
+const (
+	PATH_DATA = "~/Dropbox/gistory/"
+)
+
+func process_repo(finalize chan int, repo_chan chan string) {
+	for path := range repo_chan {
+		repo, err := git.OpenRepository(path)
+		if err != nil {
+			fmt.Println("Counldn't find repo at ", path)
+		} else {
+			fmt.Println("Found git repo at: ", repo.Path())
+			rw, _ := repo.Walk()
+			rw.Iterate(func(commit *git.Commit) bool {
+				fmt.Println(commit)
+				return false
+			})
+		}
+	}
+
+	finalize <- 0
+	close(finalize)
+}
+
+func find_repos(repo_chan chan string, path string) {
+	abspath := os.Getenv("HOME") + "/" + path
+
+	visit := func(hitpath string, f os.FileInfo, err error) error {
+		sp := strings.Split(hitpath, ".")
+		if sp[len(sp)-1] == "git" {
+			repo_chan <- hitpath
+		}
+		return nil
+	}
+
+	filepath.Walk(abspath, visit)
+}
+
 func main() {
-	fmt.Println(testlib.Reverse("hello world, graham. maharg!"))
+	PATH_SEARCH := []string{"Dropbox/golang/src/github.com/graham/"}
+	finalize := make(chan int)
+	repo_chan := make(chan string)
+
+	go process_repo(finalize, repo_chan)
+
+	for path_index := range PATH_SEARCH {
+		find_repos(repo_chan, PATH_SEARCH[path_index])
+	}
+	close(repo_chan)
+
+	<-finalize
 }
