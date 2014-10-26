@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"github.com/libgit2/git2go"
 	"os"
@@ -44,11 +45,10 @@ func walk_branch(repo *git.Repository, branch *git.Branch, f *bufio.Writer) {
 		}
 
 		tree, _ := commit.Tree()
-		fileList := walk_tree(repo, tree, "")
+		//fileList := walk_tree(repo, tree, "")
 
 		opts := git.DiffOptions{}
-
-		//changeTypes := make(map[string]int)
+		changeTypes := make(map[string]int, 0)
 
 		if commit.ParentCount() > 0 {
 			for i := uint(0); i < commit.ParentCount(); i++ {
@@ -56,29 +56,38 @@ func walk_branch(repo *git.Repository, branch *git.Branch, f *bufio.Writer) {
 				oldTree, _ := parent.Tree()
 				diff, _ := repo.DiffTreeToTree(oldTree, tree, &opts)
 
-				files := make([]string, 0)
-				hunks := make([]git.DiffHunk, 0)
 				_ = diff.ForEach(func(file git.DiffDelta, progress float64) (git.DiffForEachHunkCallback, error) {
-					files = append(files, file.OldFile.Path)
+					filename := file.OldFile.Path
+					sp := strings.Split(filename, ".")
+					extension := sp[len(sp)-1]
+
 					return func(hunk git.DiffHunk) (git.DiffForEachLineCallback, error) {
-						hunks = append(hunks, hunk)
 						return func(line git.DiffLine) error {
+							if line.OldLineno == -1 {
+								changeTypes["+"+extension] += 1
+							}
+							if line.NewLineno == -1 {
+								changeTypes["-"+extension] += 1
+							}
 							return nil
 						}, nil
 					}, nil
 				}, git.DiffDetailLines)
-
-				fmt.Printf("%d/%d/%s", hunks[0].OldLines, hunks[0].NewLines, hunks[0].Header)
 			}
+
+			fmt.Println(changeTypes)
 		}
 
-		row := fmt.Sprintf("%s,%s,%d,%s,%s,%s\n",
+		j, _ := json.Marshal(changeTypes)
+
+		row := fmt.Sprintf("%s,%s,%s,%d,%s,%s,%s\n",
+			commit.Id(),
 			repo.Path(),
 			branch.Reference.Name(),
 			author.When.Unix(),
 			author.When.Local(),
 			author.Email,
-			fileList)
+			j)
 
 		f.WriteString(row)
 		return true
