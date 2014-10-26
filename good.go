@@ -3,15 +3,12 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/libgit2/git2go"
 	"os"
 	"path/filepath"
 	"strings"
-)
-
-const (
-	PATH_DATA = "Dropbox/gistory/"
 )
 
 func walk_tree(repo *git.Repository, tree *git.Tree, prefix string) string {
@@ -32,7 +29,7 @@ func walk_tree(repo *git.Repository, tree *git.Tree, prefix string) string {
 	return strings.Join(fileList, "|")
 }
 
-func walk_branch(repo *git.Repository, branch *git.Branch, f *bufio.Writer) {
+func walk_branch(repo *git.Repository, branch *git.Branch, f *bufio.Writer, search_email string) {
 	walk, _ := repo.Walk()
 
 	walk.Sorting(git.SortTopological)
@@ -40,7 +37,7 @@ func walk_branch(repo *git.Repository, branch *git.Branch, f *bufio.Writer) {
 
 	walk.Iterate(func(commit *git.Commit) bool {
 		author := commit.Author()
-		if author.Email != "graham.abbott@gmail.com" {
+		if len(search_email) > 0 && author.Email != search_email {
 			return true
 		}
 
@@ -57,9 +54,11 @@ func walk_branch(repo *git.Repository, branch *git.Branch, f *bufio.Writer) {
 				diff, _ := repo.DiffTreeToTree(oldTree, tree, &opts)
 
 				_ = diff.ForEach(func(file git.DiffDelta, progress float64) (git.DiffForEachHunkCallback, error) {
-					filename := file.OldFile.Path
-					sp := strings.Split(filename, ".")
-					extension := sp[len(sp)-1]
+					fullfilename := file.OldFile.Path
+					sp := strings.Split(fullfilename, "/")
+					filename := sp[len(sp)-1]
+					sp2 := strings.Split(filename, ".")
+					extension := sp2[len(sp2)-1]
 
 					return func(hunk git.DiffHunk) (git.DiffForEachLineCallback, error) {
 						return func(line git.DiffLine) error {
@@ -74,8 +73,6 @@ func walk_branch(repo *git.Repository, branch *git.Branch, f *bufio.Writer) {
 					}, nil
 				}, git.DiffDetailLines)
 			}
-
-			fmt.Println(changeTypes)
 		}
 
 		j, _ := json.Marshal(changeTypes)
@@ -94,8 +91,8 @@ func walk_branch(repo *git.Repository, branch *git.Branch, f *bufio.Writer) {
 	})
 }
 
-func process_repo(finalize chan int, repo_chan chan string) {
-	f, ferr := os.Create(os.Getenv("HOME") + "/" + PATH_DATA + "commit_history.csv")
+func process_repo(finalize chan int, repo_chan chan string, search_email string, save_file_path string) {
+	f, ferr := os.Create(save_file_path)
 
 	if ferr != nil {
 		fmt.Println(ferr)
@@ -114,7 +111,7 @@ func process_repo(finalize chan int, repo_chan chan string) {
 			b, _, berr := iter.Next()
 
 			for berr == nil {
-				walk_branch(repo, b, writer)
+				walk_branch(repo, b, writer, search_email)
 				b, _, berr = iter.Next()
 			}
 		}
@@ -127,7 +124,7 @@ func process_repo(finalize chan int, repo_chan chan string) {
 }
 
 func find_repos(repo_chan chan string, path string) {
-	abspath := os.Getenv("HOME") + "/" + path
+	abspath := path
 
 	visit := func(hitpath string, f os.FileInfo, err error) error {
 		sp := strings.Split(hitpath, ".")
@@ -140,17 +137,54 @@ func find_repos(repo_chan chan string, path string) {
 	filepath.Walk(abspath, visit)
 }
 
+func analyize(filename string) {
+	file, _ := os.Open(filename)
+	scanner := bufio.NewReader(file)
+
+	changeTypes := make(map[string]int, 0)
+
+	for line, _, err := scanner.ReadLine(); err == nil; line, _, err = scanner.ReadLine() {
+		sp := strings.SplitN(string(line), ",", 7)
+		localChange := make(map[string]int)
+		json.Unmarshal([]byte(sp[6]), &localChange)
+
+		for key, value := range localChange {
+			changeTypes[key] += value
+		}
+	}
+
+	for key, value := range changeTypes {
+		if key[0] == '+' {
+			fmt.Printf("%14s - %d\n", key, value)
+		}
+	}
+}
+
 func main() {
-	PATH_SEARCH := []string{"Dropbox/golang/src/github.com/graham/good/"}
+	var fpath *string = flag.String("path", "./", "Path to search (default ./)")
+	var femail *string = flag.String("email", "", "The author (by email) to search for.")
+	flag.Parse()
+
+	if len(*femail) == 0 {
+		fmt.Println("usage: good --email=youremail@domain.com")
+		fmt.Println("       good --path=path/to/dir/ --email=youremail@domain.com")
+		return
+	}
+
+	path, _ := filepath.Abs(string(*fpath))
+	email := strings.Replace(string(*femail), "\\@", "@", -1)
+
 	finalize := make(chan int)
 	repo_chan := make(chan string)
 
-	go process_repo(finalize, repo_chan)
+	save_file_path := os.Getenv("HOME") + "/commit_history_" + email + ".csv"
 
-	for path_index := range PATH_SEARCH {
-		find_repos(repo_chan, PATH_SEARCH[path_index])
-	}
+	go process_repo(finalize, repo_chan, email, save_file_path)
+
+	find_repos(repo_chan, path)
 	close(repo_chan)
 
 	<-finalize
+
+	analyize(save_file_path)
 }
