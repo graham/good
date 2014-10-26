@@ -18,20 +18,15 @@ func process_repo(finalize chan int, repo_chan chan string) {
 		if err != nil {
 			fmt.Println("Counldn't find repo at ", path)
 		} else {
-			iter, err := repo.NewBranchIterator(git.BranchLocal)
+			walk, _ := repo.Walk()
 
-			b, _, err := iter.Next()
-
-			for err == nil {
-				name, _ := b.Name()
-				fmt.Println(name)
-
-				obj, _ := repo.Revparse(name)
-				fmt.Println(obj)
-
-				b, _, err = iter.Next()
-			}
-			fmt.Println("Ref over")
+			walk.Sorting(git.SortTopological)
+			walk.Reset()
+			walk.PushRef("31eb918")
+			walk.Iterate(func(commit *git.Commit) bool {
+				fmt.Println(commit.Message())
+				return true
+			})
 		}
 	}
 
