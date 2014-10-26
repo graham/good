@@ -22,7 +22,7 @@ func process_repo(finalize chan int, repo_chan chan string) {
 
 			walk.Sorting(git.SortTopological)
 			walk.Reset()
-			walk.PushRef("31eb918")
+			walk.PushRef("testing")
 			walk.Iterate(func(commit *git.Commit) bool {
 				fmt.Println(commit.Message())
 				return true
