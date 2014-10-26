@@ -178,7 +178,7 @@ func analyize(filename string, in_last int64) {
 func main() {
 	var fpath *string = flag.String("path", "./", "Path to search (default ./)")
 	var femail *string = flag.String("email", "", "The author (by email) to search for.")
-	var skip_search *int = flag.Int("skip", 0, "If 1 skip the search phase.")
+	var skip_search *int = flag.Int("skip", 0, "If 1 skip the scan step.")
 	var lower_bound *int64 = flag.Int64("days", -1, "History in days to search.")
 
 	flag.Parse()
@@ -186,6 +186,9 @@ func main() {
 	if len(*femail) == 0 {
 		fmt.Println("usage: good --email=youremail@domain.com")
 		fmt.Println("       good --path=path/to/dir/ --email=youremail@domain.com")
+		fmt.Println(" additional args:")
+		fmt.Println("            --days=<int> # in the last int days.")
+		fmt.Println("            --skip=<int> # 1 to skip the scanning step.")
 		return
 	}
 
