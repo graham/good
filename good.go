@@ -142,9 +142,7 @@ func find_repos(repo_chan chan string, path string) {
 func analyize(filename string, in_last int64, with_del bool) {
 	var lower_bound int64 = 0
 
-	if in_last == -1 {
-		// pass
-	} else {
+	if in_last != -1 {
 		lower_bound = time.Now().Unix() - int64(in_last*60*60*24)
 	}
 
