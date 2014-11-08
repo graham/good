@@ -106,6 +106,16 @@ func process_repo(finalize chan int, repo_chan chan string, search_email string,
 
 	for path := range repo_chan {
 		repo, err := git.OpenRepository(path)
+
+		if len(search_email) == 0 {
+			config, _ := repo.Config()
+			search_email, err = config.LookupString("user.email")
+			if err != nil {
+				fmt.Println("Can't continue, no email as apart of repo: %s", path)
+				continue
+			}
+		}
+
 		if err != nil {
 			fmt.Println("Counldn't find repo at ", path)
 		} else {
@@ -189,15 +199,6 @@ func main() {
 	var with_del *bool = flag.Bool("all", false, "Show deletes as well.")
 
 	flag.Parse()
-
-	if len(*femail) == 0 {
-		fmt.Println("usage: good --email=youremail@domain.com")
-		fmt.Println("       good --path=path/to/dir/ --email=youremail@domain.com")
-		fmt.Println(" additional args:")
-		fmt.Println("            --days=<int> # in the last int days.")
-		fmt.Println("            --skip=<int> # 1 to skip the scanning step.")
-		return
-	}
 
 	path, _ := filepath.Abs(string(*fpath))
 	email := strings.Replace(string(*femail), "\\@", "@", -1)
