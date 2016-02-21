@@ -8,6 +8,7 @@ import (
 	"github.com/libgit2/git2go"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -59,8 +60,15 @@ func walk_branch(repo *git.Repository, branch *git.Branch, f *bufio.Writer, sear
 					fullfilename := file.OldFile.Path
 					sp := strings.Split(fullfilename, "/")
 					filename := sp[len(sp)-1]
+
+					extension := ""
 					sp2 := strings.Split(filename, ".")
-					extension := sp2[len(sp2)-1]
+
+					if strings.Contains(filename, ".") {
+						extension = sp2[len(sp2)-1]
+					} else {
+						extension = "no-extension"
+					}
 
 					return func(hunk git.DiffHunk) (git.DiffForEachLineCallback, error) {
 						return func(line git.DiffLine) error {
@@ -68,7 +76,7 @@ func walk_branch(repo *git.Repository, branch *git.Branch, f *bufio.Writer, sear
 								changeTypes["+"+extension] += 1
 							}
 							if line.NewLineno == -1 {
-								changeTypes["-"+extension] += 1
+								changeTypes["-"+extension] -= 1
 							}
 							return nil
 						}, nil
@@ -149,6 +157,29 @@ func find_repos(repo_chan chan string, path string) {
 	filepath.Walk(abspath, visit)
 }
 
+// Credit to Andrew Gerrand for this go-style-solution
+type Pair struct {
+	Key   string
+	Value int
+}
+
+type PairList []Pair
+
+func (p PairList) Len() int           { return len(p) }
+func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
+func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+func rankByValueCount(extFrequency map[string]int) PairList {
+	pairsList := make(PairList, 0)
+
+	for key, value := range extFrequency {
+		pairsList = append(pairsList, Pair{key, value})
+	}
+
+	sort.Sort(sort.Reverse(pairsList))
+	return pairsList
+}
+
 func analyize(filename string, in_last int64, with_del bool) {
 	var lower_bound int64 = 0
 
@@ -183,11 +214,15 @@ func analyize(filename string, in_last int64, with_del bool) {
 				}
 			}
 		}
-
 	}
 
-	for key, value := range changeTypes {
-		fmt.Printf("%14s | %d\n", key, value)
+	keys := make([]string, 0)
+	for key, _ := range changeTypes {
+		keys = append(keys, key)
+	}
+
+	for _, pair := range rankByValueCount(changeTypes) {
+		fmt.Printf("%20s | %d\n", pair.Key, pair.Value)
 	}
 }
 
