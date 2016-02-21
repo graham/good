@@ -7,7 +7,7 @@ The goal of good is to analyze what you've been working on. I wrote good because
 
 Good takes an email and path as arguments and tries to find all of the commits it can:
 
-	$ good --email=graham.abbott@gmail.com | sort -n -r -k3
+	$ good --email=graham.abbott@gmail.com
            +js | 104000
            +py | 44554
           +css | 27418
