@@ -5,19 +5,20 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/libgit2/git2go"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	git "github.com/libgit2/git2go/v33"
 )
 
 func walk_tree(repo *git.Repository, tree *git.Tree, prefix string) string {
 	fileList := []string{}
 
-	tree.Walk(func(s string, t *git.TreeEntry) int {
+	tree.Walk(func(s string, t *git.TreeEntry) error {
 
 		if t.Type == git.ObjectBlob {
 			filename := prefix + "/" + t.Name
@@ -26,7 +27,7 @@ func walk_tree(repo *git.Repository, tree *git.Tree, prefix string) string {
 			newTree, _ := repo.LookupTree(t.Id)
 			fileList = append(fileList, walk_tree(repo, newTree, t.Name))
 		}
-		return 1
+		return nil
 	})
 
 	return strings.Join(fileList, "|")
